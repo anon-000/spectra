@@ -1,0 +1,28 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git curl gnupg && rm -rf /var/lib/apt/lists/*
+
+# Install security scanning tools
+RUN pip install --no-cache-dir semgrep
+RUN curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
+
+# osv-scanner (pre-built Go binary)
+RUN curl -sSfL https://github.com/google/osv-scanner/releases/latest/download/osv-scanner_linux_amd64 \
+    -o /usr/local/bin/osv-scanner \
+    && chmod +x /usr/local/bin/osv-scanner
+
+# Node.js 20 LTS + cdxgen (CycloneDX SBOM generator)
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && npm install -g @cyclonedx/cdxgen \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml .
+COPY src/ src/
+RUN pip install --no-cache-dir .
+
+ENV PYTHONPATH=/app/src
+CMD ["arq", "worker.WorkerSettings"]

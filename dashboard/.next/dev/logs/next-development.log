@@ -1,0 +1,21 @@
+[120:51:14.855] Server  ERROR   ⨯ Error: Cannot find module 'next/dist/client/components/builtin/global-not-found'
+Require stack:
+- /Users/auro/Documents/projectX/spectra/dashboard/node_modules/next/dist/server/dev/on-demand-entry-handler.js
+- /Users/auro/Documents/projectX/spectra/dashboard/node_modules/next/dist/server/dev/hot-reloader-turbopack.js
+- /Users/auro/Documents/projectX/spectra/dashboard/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/auro/Documents/projectX/spectra/dashboard/node_modules/next/dist/server/lib/router-server.js
+- /Users/auro/Documents/projectX/spectra/dashboard/node_modules/next/dist/server/lib/start-server.js
+[127:28:29.722] Server  ERROR   ⨯ Error: Cannot find module 'next/dist/client/components/builtin/global-not-found'
+Require stack:
+- /Users/auro/Documents/projectX/spectra/dashboard/node_modules/next/dist/server/dev/on-demand-entry-handler.js
+- /Users/auro/Documents/projectX/spectra/dashboard/node_modules/next/dist/server/dev/hot-reloader-turbopack.js
+- /Users/auro/Documents/projectX/spectra/dashboard/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/auro/Documents/projectX/spectra/dashboard/node_modules/next/dist/server/lib/router-server.js
+- /Users/auro/Documents/projectX/spectra/dashboard/node_modules/next/dist/server/lib/start-server.js
+[127:29:12.632] Server  ERROR   ⨯ Error: Cannot find module 'next/dist/client/components/builtin/global-not-found'
+Require stack:
+- /Users/auro/Documents/projectX/spectra/dashboard/node_modules/next/dist/server/dev/on-demand-entry-handler.js
+- /Users/auro/Documents/projectX/spectra/dashboard/node_modules/next/dist/server/dev/hot-reloader-turbopack.js
+- /Users/auro/Documents/projectX/spectra/dashboard/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/auro/Documents/projectX/spectra/dashboard/node_modules/next/dist/server/lib/router-server.js
+- /Users/auro/Documents/projectX/spectra/dashboard/node_modules/next/dist/server/lib/start-server.js

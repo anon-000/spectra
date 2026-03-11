@@ -35,6 +35,10 @@ class FindingResponse(SpectraBase):
     package_version: str | None = None
     cve_id: str | None = None
     cwe_id: str | None = None
+    auto_fix_status: str | None = None
+    auto_fix_pr_url: str | None = None
+    auto_fix_pr_number: int | None = None
+    auto_fix_error: str | None = None
     created_at: datetime
     updated_at: datetime
 

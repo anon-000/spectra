@@ -65,4 +65,10 @@ class Finding(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     metadata_json: Mapped[dict | None] = mapped_column(JSON)
 
+    # Auto-fix PR
+    auto_fix_status: Mapped[str | None] = mapped_column(String(20))  # pending, in_progress, pr_created, failed
+    auto_fix_pr_url: Mapped[str | None] = mapped_column(String(1024))
+    auto_fix_pr_number: Mapped[int | None] = mapped_column(Integer)
+    auto_fix_error: Mapped[str | None] = mapped_column(Text)
+
     events: Mapped[list["FindingEvent"]] = relationship(back_populates="finding")

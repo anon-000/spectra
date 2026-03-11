@@ -4,6 +4,10 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from arq import create_pool
+from arq.connections import RedisSettings
+
+from config import get_settings
 from core.exceptions import ForbiddenError, NotFoundError
 from db.models.finding import Finding
 from db.models.finding_event import FindingEvent
@@ -142,6 +146,41 @@ async def bulk_update_findings(
     for f in updated:
         await db.refresh(f)
     return updated
+
+
+@router.post("/{finding_id}/auto-fix", response_model=FindingResponse)
+async def trigger_auto_fix(
+    finding_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    finding = (await db.execute(select(Finding).where(Finding.id == finding_id))).scalar_one_or_none()
+    if not finding:
+        raise NotFoundError("Finding", str(finding_id))
+
+    repo = (await db.execute(select(Repo).where(Repo.id == finding.repo_id))).scalar_one()
+    if repo.org_id != user.org_id:
+        raise ForbiddenError()
+
+    if not finding.ai_suggested_fix:
+        from core.exceptions import ValidationError
+        raise ValidationError("Finding has no AI suggested fix")
+
+    if finding.auto_fix_status in ("pending", "in_progress"):
+        from core.exceptions import ValidationError
+        raise ValidationError("Auto-fix already in progress")
+
+    finding.auto_fix_status = "pending"
+    finding.auto_fix_error = None
+    await db.commit()
+    await db.refresh(finding)
+
+    settings = get_settings()
+    pool = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+    await pool.enqueue_job("run_auto_fix", str(finding_id))
+    await pool.close()
+
+    return finding
 
 
 @router.get("/{finding_id}/events", response_model=list[FindingEventResponse])

@@ -1,14 +1,14 @@
 'use client';
 
+import { useEffect } from 'react';
 import useSWR from 'swr';
-import { reposApi } from '@/lib/api';
-import { scansApi } from '@/lib/api';
-import { findingsApi } from '@/lib/api';
+import { reposApi, scansApi, findingsApi } from '@/lib/api';
 import { ShieldAlert, ScanSearch, GitBranch, AlertTriangle, TrendingUp, Activity } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SeverityBadge } from '@/components/ui/SeverityBadge';
 import { formatDate, shortSha } from '@/lib/utils';
 import Link from 'next/link';
+import { useDashboardSSE } from '@/lib/useSSE';
 
 function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: number | string; color: string }) {
   return (
@@ -26,9 +26,19 @@ function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType
 
 export default function DashboardPage() {
   const { data: repos } = useSWR('repos', () => reposApi.list());
-  const { data: scans } = useSWR('scans-recent', () => scansApi.list({ page_size: 5 }));
-  const { data: findings } = useSWR('findings-recent', () => findingsApi.list({ page_size: 5, status: 'open' }));
-  const { data: criticalFindings } = useSWR('findings-critical', () => findingsApi.list({ severity: 'critical', status: 'open', page_size: 1 }));
+  const { data: scans, mutate: mutateScans } = useSWR('scans-recent', () => scansApi.list({ page_size: 5 }));
+  const { data: findings, mutate: mutateFindings } = useSWR('findings-recent', () => findingsApi.list({ page_size: 5, status: 'open' }));
+  const { data: criticalFindings, mutate: mutateCritical } = useSWR('findings-critical', () => findingsApi.list({ severity: 'critical', status: 'open', page_size: 1 }));
+
+  // Auto-refresh on scan events
+  const { event } = useDashboardSSE();
+  useEffect(() => {
+    if (event?.stage === 'completed' || event?.stage === 'failed') {
+      mutateScans();
+      mutateFindings();
+      mutateCritical();
+    }
+  }, [event, mutateScans, mutateFindings, mutateCritical]);
 
   const openCount = findings?.length ?? 0;
   const criticalCount = criticalFindings?.length ?? 0;

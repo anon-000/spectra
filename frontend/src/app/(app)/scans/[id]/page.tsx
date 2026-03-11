@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import useSWR from 'swr';
 import { scansApi, findingsApi } from '@/lib/api';
 import { useParams } from 'next/navigation';
@@ -8,11 +9,25 @@ import { SeverityBadge } from '@/components/ui/SeverityBadge';
 import { formatDate, shortSha } from '@/lib/utils';
 import Link from 'next/link';
 import { GitCommit, Clock, CheckCircle, AlertTriangle, ShieldAlert, ArrowLeft } from 'lucide-react';
+import { useScanSSE } from '@/lib/useSSE';
+import { ScanProgress } from '@/components/ScanProgress';
 
 export default function ScanDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { data: scan } = useSWR(`scan-${id}`, () => scansApi.get(id));
-  const { data: findings } = useSWR(`scan-findings-${id}`, () => findingsApi.list({ scan_id: id, page_size: 50 }));
+  const { data: scan, mutate: mutateScan } = useSWR(`scan-${id}`, () => scansApi.get(id));
+  const { data: findings, mutate: mutateFindings } = useSWR(`scan-findings-${id}`, () => findingsApi.list({ scan_id: id, page_size: 50 }));
+
+  // Connect SSE when scan is pending/running
+  const isActive = scan?.status === 'pending' || scan?.status === 'running';
+  const { event } = useScanSSE(isActive ? id : null);
+
+  // Refresh data when scan completes via SSE
+  useEffect(() => {
+    if (event?.stage === 'completed' || event?.stage === 'failed') {
+      mutateScan();
+      mutateFindings();
+    }
+  }, [event?.stage, mutateScan, mutateFindings]);
 
   const duration =
     scan?.started_at && scan?.finished_at
@@ -65,6 +80,9 @@ export default function ScanDetailPage() {
           ))}
         </div>
       </div>
+
+      {/* Real-time progress */}
+      {isActive && <ScanProgress event={event} />}
 
       {/* Findings */}
       <div className="bg-[#141414] rounded-2xl border border-white/5 overflow-hidden">

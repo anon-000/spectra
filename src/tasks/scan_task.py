@@ -10,6 +10,7 @@ from db.engine import async_session
 from db.models.finding import Finding
 from db.models.scan import Scan
 from services.github import clone_repo, cleanup_clone, get_installation_token
+from services.scan_events import publish_scan_progress
 from storage.s3 import ensure_bucket, upload_scan_results
 from tasks.ai_triage import triage_finding
 from tasks.normalizer import deduplicate
@@ -35,13 +36,24 @@ async def run_scan(ctx: dict, scan_id: str, installation_id: int, clone_url: str
         scan.started_at = datetime.now(UTC)
         await db.commit()
 
+        # Get org_id for SSE events
+        from db.models.repo import Repo
+        repo_row = (await db.execute(select(Repo).where(Repo.id == scan.repo_id))).scalar_one()
+        org_id = str(repo_row.org_id)
+
+    async def emit(stage: str, message: str, pct: int = 0, **kw):
+        await publish_scan_progress(scan_id, org_id, stage, "running", message, pct, **kw)
+
     repo_path = None
     try:
+        await emit("cloning", "Cloning repository…", 5)
         token = await get_installation_token(installation_id)
         repo_path = await clone_repo(clone_url, token, scan.commit_sha)
+        await emit("cloning", "Repository cloned", 10)
 
         ensure_bucket()
 
+        await emit("sast_running", "Running SAST & security scanners…", 15)
         # Run all tools concurrently
         tool_results = await asyncio.gather(
             *[tool.run(repo_path) for tool in TOOLS],
@@ -56,10 +68,12 @@ async def run_scan(ctx: dict, scan_id: str, installation_id: int, clone_url: str
             upload_scan_results(scan_id, tool.name, [asdict(f) for f in result])
             all_findings.extend(result)
 
+        await emit("normalizing", "Normalizing and deduplicating findings…", 50)
         # Normalize and dedup
         unique = deduplicate(all_findings)
 
         # AI triage concurrently
+        await emit("ai_triage", f"AI triaging {len(unique)} findings…", 60)
         triage_tasks = [triage_finding(f) for f, _fp in unique]
         triage_results = await asyncio.gather(*triage_tasks, return_exceptions=True)
 
@@ -126,6 +140,8 @@ async def run_scan(ctx: dict, scan_id: str, installation_id: int, clone_url: str
 
             await db.commit()
 
+        await emit("policy_eval", "Evaluating security policies…", 85)
+
         # Update scan status
         async with async_session() as db:
             stmt = select(Scan).where(Scan.id == UUID(scan_id))
@@ -161,6 +177,13 @@ async def run_scan(ctx: dict, scan_id: str, installation_id: int, clone_url: str
             except Exception:
                 logger.exception("slack_notification_failed", scan_id=scan_id)
 
+        await publish_scan_progress(
+            scan_id, org_id, "completed", "completed",
+            f"Scan completed — {counters['total']} new findings", 100,
+            findings_count=counters["total"],
+            critical_count=counters["critical"],
+            high_count=counters["high"],
+        )
         logger.info("scan_completed", scan_id=scan_id, findings=counters["total"])
 
     except Exception:
@@ -172,6 +195,7 @@ async def run_scan(ctx: dict, scan_id: str, installation_id: int, clone_url: str
             scan.status = "failed"
             scan.finished_at = datetime.now(UTC)
             await db.commit()
+        await publish_scan_progress(scan_id, org_id, "failed", "failed", "Scan failed", 0)
         raise
     finally:
         if repo_path:

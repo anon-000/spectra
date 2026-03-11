@@ -1,6 +1,7 @@
 from arq.connections import RedisSettings
 
 from config import get_settings
+from tasks.auto_fix_task import run_auto_fix
 from tasks.scan_task import run_scan
 
 
@@ -14,7 +15,7 @@ async def shutdown(ctx: dict) -> None:
 
 
 class WorkerSettings:
-    functions = [run_scan]
+    functions = [run_scan, run_auto_fix]
     on_startup = startup
     on_shutdown = shutdown
     max_jobs = 4

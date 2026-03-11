@@ -8,6 +8,7 @@ import {
   ScanSearch,
   ShieldAlert,
   FileCode,
+  BarChart3,
   LogOut,
   Zap,
 } from 'lucide-react';
@@ -19,6 +20,7 @@ const nav = [
   { label: 'Repositories', href: '/repos', icon: GitBranch },
   { label: 'Scans', href: '/scans', icon: ScanSearch },
   { label: 'Findings', href: '/findings', icon: ShieldAlert },
+  { label: 'Analytics', href: '/analytics', icon: BarChart3 },
   { label: 'Policies', href: '/policies', icon: FileCode },
 ];
 

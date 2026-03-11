@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import useSWR from 'swr';
 import { findingsApi } from '@/lib/api';
 import { useParams } from 'next/navigation';
@@ -9,7 +9,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useToast } from '@/components/ui/Toaster';
 import { formatDate, shortSha } from '@/lib/utils';
 import Link from 'next/link';
-import { ArrowLeft, Brain, Wrench, Clock, GitCommit, Package, Shield } from 'lucide-react';
+import { ArrowLeft, Brain, Wrench, Clock, GitCommit, Package, Shield, Wand2, Loader2, ExternalLink, AlertCircle } from 'lucide-react';
 
 const VALID_STATUSES = ['open', 'resolved', 'suppressed', 'false_positive'];
 
@@ -19,6 +19,31 @@ export default function FindingDetailPage() {
   const { data: events } = useSWR(`finding-events-${id}`, () => findingsApi.events(id));
   const { toast } = useToast();
   const [updating, setUpdating] = useState(false);
+  const [fixRequesting, setFixRequesting] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Poll while auto-fix is pending/in_progress
+  useEffect(() => {
+    if (finding?.auto_fix_status === 'pending' || finding?.auto_fix_status === 'in_progress') {
+      pollRef.current = setInterval(() => mutate(), 3000);
+    }
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [finding?.auto_fix_status, mutate]);
+
+  const triggerAutoFix = async () => {
+    setFixRequesting(true);
+    try {
+      await findingsApi.autoFix(id);
+      await mutate();
+      toast('success', 'Auto-fix initiated');
+    } catch {
+      toast('error', 'Failed to start auto-fix');
+    } finally {
+      setFixRequesting(false);
+    }
+  };
 
   const updateStatus = async (status: string) => {
     setUpdating(true);
@@ -107,7 +132,50 @@ export default function FindingDetailPage() {
       {/* AI Analysis */}
       {(finding?.ai_explanation || finding?.ai_suggested_fix || finding?.ai_verdict) && (
         <div className="bg-gradient-to-br from-purple-500/5 to-indigo-500/5 rounded-2xl border border-purple-500/15 p-6 space-y-4">
-          <h2 className="text-sm font-semibold text-purple-300 flex items-center gap-2"><Brain size={14} /> AI Analysis</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-purple-300 flex items-center gap-2"><Brain size={14} /> AI Analysis</h2>
+            {/* Auto-Fix Button / Status */}
+            {finding?.ai_suggested_fix && (
+              <div className="flex items-center gap-2">
+                {finding.auto_fix_status === 'pr_created' && finding.auto_fix_pr_url ? (
+                  <a
+                    href={finding.auto_fix_pr_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 rounded-full px-3 py-1.5 hover:bg-emerald-500/25 transition"
+                  >
+                    <ExternalLink size={11} /> PR #{finding.auto_fix_pr_number}
+                  </a>
+                ) : finding.auto_fix_status === 'pending' || finding.auto_fix_status === 'in_progress' ? (
+                  <span className="flex items-center gap-1.5 text-xs bg-indigo-500/15 text-indigo-300 border border-indigo-500/20 rounded-full px-3 py-1.5">
+                    <Loader2 size={11} className="animate-spin" />
+                    {finding.auto_fix_status === 'pending' ? 'Queued…' : 'Generating fix…'}
+                  </span>
+                ) : finding.auto_fix_status === 'failed' ? (
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1 text-xs text-red-400" title={finding.auto_fix_error || ''}>
+                      <AlertCircle size={11} /> Failed
+                    </span>
+                    <button
+                      onClick={triggerAutoFix}
+                      disabled={fixRequesting}
+                      className="flex items-center gap-1.5 text-xs bg-indigo-500/15 text-indigo-300 border border-indigo-500/20 rounded-full px-3 py-1.5 hover:bg-indigo-500/25 transition disabled:opacity-50"
+                    >
+                      <Wand2 size={11} /> Retry
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={triggerAutoFix}
+                    disabled={fixRequesting}
+                    className="flex items-center gap-1.5 text-xs bg-indigo-500/15 text-indigo-300 border border-indigo-500/20 rounded-full px-3 py-1.5 hover:bg-indigo-500/25 transition disabled:opacity-50"
+                  >
+                    <Wand2 size={11} /> Auto-Fix
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
           {finding?.ai_verdict && (
             <div className="inline-flex items-center gap-1.5 text-xs bg-purple-500/15 text-purple-300 border border-purple-500/20 rounded-full px-3 py-1">
               <Shield size={11} /> Verdict: {finding.ai_verdict}

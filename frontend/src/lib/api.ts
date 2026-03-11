@@ -123,6 +123,24 @@ export const findingsApi = {
     }),
   events: (id: string) =>
     request<import('@/types').FindingEvent[]>(`/api/v1/findings/${id}/events`),
+  autoFix: (id: string) =>
+    request<import('@/types').Finding>(`/api/v1/findings/${id}/auto-fix`, { method: 'POST' }),
+};
+
+// ─── Analytics ─────────────────────────────────────────────────────────────────
+
+export interface AnalyticsTrendsParams {
+  repo_id?: string;
+  period?: string;
+}
+
+export const analyticsApi = {
+  trends: (params: AnalyticsTrendsParams = {}) => {
+    const q = new URLSearchParams();
+    if (params.repo_id) q.set('repo_id', params.repo_id);
+    if (params.period) q.set('period', params.period);
+    return request<import('@/types').AnalyticsResponse>(`/api/v1/analytics/trends?${q}`);
+  },
 };
 
 // ─── Policies ──────────────────────────────────────────────────────────────────

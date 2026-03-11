@@ -92,6 +92,10 @@ export interface Finding {
   package_version: string | null;
   cve_id: string | null;
   cwe_id: string | null;
+  auto_fix_status: string | null;
+  auto_fix_pr_url: string | null;
+  auto_fix_pr_number: number | null;
+  auto_fix_error: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -144,6 +148,52 @@ export interface PolicyUpdate {
   name?: string;
   is_active?: boolean;
   rules?: PolicyRules;
+}
+
+// ─── Analytics ───────────────────────────────────────────────────────────────
+
+export interface TimeSeriesPoint {
+  date: string;
+  opened: number;
+  resolved: number;
+}
+
+export interface SeverityCount {
+  severity: string;
+  count: number;
+}
+
+export interface CategoryCount {
+  category: string;
+  count: number;
+}
+
+export interface TopRule {
+  rule_id: string;
+  tool: string;
+  count: number;
+}
+
+export interface TopRepo {
+  full_name: string;
+  count: number;
+}
+
+export interface MTTRBySeverity {
+  severity: string;
+  avg_hours: number;
+}
+
+export interface AnalyticsResponse {
+  total_open: number;
+  total_resolved: number;
+  total_suppressed: number;
+  time_series: TimeSeriesPoint[];
+  by_severity: SeverityCount[];
+  by_category: CategoryCount[];
+  top_rules: TopRule[];
+  top_repos: TopRepo[];
+  mttr_by_severity: MTTRBySeverity[];
 }
 
 // ─── Shared ───────────────────────────────────────────────────────────────────
